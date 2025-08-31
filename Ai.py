@@ -9,9 +9,8 @@ import PyPDF2
 import pandas as pd
 from pptx import Presentation
 import io
-from langchain.llms import OpenAI
-from langchain.schema import BaseMessage, HumanMessage
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage
 import base64
 
 # Page config
@@ -100,8 +99,8 @@ def generate_feedback(content, student_name, file_name, api_key, model_name):
     try:
         # Initialize the ChatOpenAI model
         llm = ChatOpenAI(
-            openai_api_key=api_key,
-            model_name=model_name,
+            api_key=api_key,  # Updated parameter name
+            model=model_name,  # Updated parameter name
             temperature=0.7
         )
         
@@ -139,7 +138,7 @@ Please provide detailed feedback on this student project following this structur
 Please be constructive, specific, and encouraging while maintaining academic standards.
 """
         
-        # Generate response
+        # Generate response using the updated method
         response = llm.invoke([HumanMessage(content=prompt)])
         return response.content
         
