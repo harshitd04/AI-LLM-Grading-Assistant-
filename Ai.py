@@ -10,6 +10,7 @@ import pandas as pd
 from pptx import Presentation
 import io
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain.schema import HumanMessage
 import base64
 
@@ -28,17 +29,47 @@ st.markdown("Upload student project files and get AI-generated feedback using yo
 with st.sidebar:
     st.header("🔑 API Configuration")
     
+    # Provider selection
+    provider = st.selectbox(
+        "Select AI Provider:",
+        ["ChatGPT", "Claude"],
+        index=0,  # Default to ChatGPT
+        help="Choose between OpenAI ChatGPT or Anthropic Claude"
+    )
+    
+    # API key input with dynamic label
+    api_key_label = "Enter your OpenAI API Key:" if provider == "ChatGPT" else "Enter your Anthropic API Key:"
     api_key = st.text_input(
-        "Enter your OpenAI API Key:",
+        api_key_label,
         type="password",
         help="Your API key will not be stored and is only used for this session"
     )
     
-    model_name = st.selectbox(
-        "Select Model:",
-        ["gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo", "gpt-4o"],
-        index=0
-    )
+    # Model selection based on provider
+    if provider == "ChatGPT":
+        model_name = st.selectbox(
+            "Select ChatGPT Model:",
+            ["gpt-4o", "gpt-4", "gpt-4-turbo-preview", "gpt-3.5-turbo"],
+            index=0,  # Default to gpt-4o (ChatGPT 4.0)
+            help="Choose the ChatGPT model for generating feedback"
+        )
+    else:  # Claude
+        # Claude model display names and their corresponding API names
+        claude_model_options = {
+            "Claude Sonnet 4": "claude-3-5-sonnet-20241022",
+            "Claude Opus 4": "claude-3-opus-20240229", 
+            "Claude Haiku 4": "claude-3-5-haiku-20241022"
+        }
+        
+        selected_display_name = st.selectbox(
+            "Select Claude Model:",
+            list(claude_model_options.keys()),
+            index=0,  # Default to Claude Sonnet 4
+            help="Choose the Claude model for generating feedback"
+        )
+        
+        # Get the actual API model name
+        model_name = claude_model_options[selected_display_name]
     
     st.markdown("---")
     st.markdown("**Supported File Types:**")
@@ -94,15 +125,22 @@ def process_file(uploaded_file):
     else:
         return "Unsupported file format"
 
-def generate_feedback(content, student_name, file_name, api_key, model_name):
-    """Generate feedback using OpenAI API via LangChain"""
+def generate_feedback(content, student_name, file_name, api_key, model_name, provider):
+    """Generate feedback using OpenAI or Anthropic API via LangChain"""
     try:
-        # Initialize the ChatOpenAI model
-        llm = ChatOpenAI(
-            api_key=api_key,  # Updated parameter name
-            model=model_name,  # Updated parameter name
-            temperature=0.7
-        )
+        # Initialize the appropriate model based on provider
+        if provider == "ChatGPT":
+            llm = ChatOpenAI(
+                api_key=api_key,
+                model=model_name,
+                temperature=0.7
+            )
+        else:  # Claude
+            llm = ChatAnthropic(
+                anthropic_api_key=api_key,
+                model=model_name,
+                temperature=0.7
+            )
         
         # Create the grading prompt
         prompt = f"""
@@ -176,7 +214,8 @@ def create_word_document(feedback, student_name, file_name):
 # Main application
 def main():
     if not api_key:
-        st.warning("⚠️ Please enter your OpenAI API key in the sidebar to continue.")
+        provider_name = "OpenAI" if provider == "ChatGPT" else "Anthropic"
+        st.warning(f"⚠️ Please enter your {provider_name} API key in the sidebar to continue.")
         st.stop()
     
     # File upload section
@@ -223,7 +262,8 @@ def main():
                     student_name, 
                     ", ".join([f.name for f in uploaded_files]),
                     api_key,
-                    model_name
+                    model_name,
+                    provider
                 )
                 
                 # Store in session state
